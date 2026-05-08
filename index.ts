@@ -14,6 +14,7 @@ const port = Number(process.env.PORT) || 3000;
 Bun.serve({
 	hostname: "0.0.0.0",
 	port,
+	idleTimeout: 0,
 	routes: {
 		"/mcp": {
 			POST: (req) => transport.handleRequest(req),
