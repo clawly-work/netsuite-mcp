@@ -7,6 +7,27 @@ export interface NetSuiteConfig {
 	baseUrl?: string;
 }
 
+export interface RequestOptions {
+	body?: unknown;
+	headers?: Record<string, string>;
+	timeout?: number;
+}
+
+export interface ListParams {
+	q?: string;
+	limit?: number;
+	offset?: number;
+}
+
+export interface ListResult<T = Record<string, unknown>> {
+	totalResults: number;
+	items: T[];
+	links: { rel: string; href: string }[];
+	hasMore: boolean;
+	offset: number;
+	count: number;
+}
+
 export class NetSuiteClient {
 	private config: NetSuiteConfig;
 	private baseUrl: string;
@@ -18,9 +39,6 @@ export class NetSuiteClient {
 			`https://${config.accountId}.suitetalk.api.netsuite.com/services/rest`;
 	}
 
-	/**
-	 * Build OAuth 1.0 Authorization header for NetSuite REST API
-	 */
 	private async buildAuthHeader(method: string, url: string): Promise<string> {
 		const timestamp = Math.floor(Date.now() / 1000).toString();
 		const nonce = crypto.randomUUID().replace(/-/g, "");
@@ -34,7 +52,7 @@ export class NetSuiteClient {
 			oauth_version: "1.0",
 		};
 
-		// Include query params in signature base string per OAuth 1.0 spec
+		// Include query params in signature per OAuth 1.0 spec
 		const [urlBase, queryString] = url.split("?");
 		if (queryString) {
 			for (const part of queryString.split("&")) {
@@ -57,7 +75,6 @@ export class NetSuiteClient {
 			encodeURIComponent(sortedParams),
 		].join("&");
 
-		// Sign with HMAC-SHA256
 		const signingKey = `${encodeURIComponent(this.config.consumerSecret)}&${encodeURIComponent(this.config.tokenSecret)}`;
 		const key = await crypto.subtle.importKey(
 			"raw",
@@ -90,11 +107,7 @@ export class NetSuiteClient {
 	async request(
 		method: string,
 		path: string,
-		options?: {
-			body?: unknown;
-			headers?: Record<string, string>;
-			timeout?: number;
-		},
+		options?: RequestOptions,
 	): Promise<unknown> {
 		const url = `${this.baseUrl}${path}`;
 		const authHeader = await this.buildAuthHeader(method, url);
@@ -122,7 +135,81 @@ export class NetSuiteClient {
 			throw new Error(`NetSuite API error ${res.status}: ${text}`);
 		}
 
-		return res.json();
+		const contentType = res.headers.get("content-type") ?? "";
+		if (contentType.includes("json")) {
+			return res.json();
+		}
+		return res.text();
+	}
+
+	// --- Record API ---
+
+	private buildQuery(params: ListParams): string {
+		const qs: string[] = [];
+		if (params.q) qs.push(`q=${encodeURIComponent(params.q)}`);
+		if (params.limit) qs.push(`limit=${params.limit}`);
+		if (params.offset) qs.push(`offset=${params.offset}`);
+		return qs.length ? `?${qs.join("&")}` : "";
+	}
+
+	async listRecords(
+		recordType: string,
+		params: ListParams = {},
+	): Promise<ListResult> {
+		const query = this.buildQuery(params);
+		return (await this.request(
+			"GET",
+			`/record/v1/${recordType}${query}`,
+		)) as ListResult;
+	}
+
+	async getRecord(
+		recordType: string,
+		id: string,
+	): Promise<Record<string, unknown>> {
+		return (await this.request(
+			"GET",
+			`/record/v1/${recordType}/${id}`,
+		)) as Record<string, unknown>;
+	}
+
+	async createRecord(
+		recordType: string,
+		data: Record<string, unknown>,
+	): Promise<Record<string, unknown>> {
+		return (await this.request("POST", `/record/v1/${recordType}`, {
+			body: data,
+		})) as Record<string, unknown>;
+	}
+
+	async updateRecord(
+		recordType: string,
+		id: string,
+		data: Record<string, unknown>,
+	): Promise<Record<string, unknown>> {
+		return (await this.request("PATCH", `/record/v1/${recordType}/${id}`, {
+			body: data,
+		})) as Record<string, unknown>;
+	}
+
+	async deleteRecord(recordType: string, id: string): Promise<unknown> {
+		return this.request("DELETE", `/record/v1/${recordType}/${id}`);
+	}
+
+	// --- SuiteQL ---
+
+	async suiteQL(
+		query: string,
+		params: { limit?: number; offset?: number } = {},
+	): Promise<ListResult> {
+		const qs: string[] = [];
+		if (params.limit) qs.push(`limit=${params.limit}`);
+		if (params.offset) qs.push(`offset=${params.offset}`);
+		const queryString = qs.length ? `?${qs.join("&")}` : "";
+		return (await this.request("POST", `/query/v1/suiteql${queryString}`, {
+			body: { q: query },
+			headers: { Prefer: "transient" },
+		})) as ListResult;
 	}
 }
 

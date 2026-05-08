@@ -1,0 +1,40 @@
+import type { ListParams, NetSuiteClient } from "../netsuite-client.ts";
+
+const RECORD_TYPE = "customer";
+
+export function registerCustomerAPI(client: NetSuiteClient) {
+	return {
+		list(params: ListParams = {}) {
+			return client.listRecords(RECORD_TYPE, params);
+		},
+
+		get(id: string) {
+			return client.getRecord(RECORD_TYPE, id);
+		},
+
+		create(data: Record<string, unknown>) {
+			return client.createRecord(RECORD_TYPE, data);
+		},
+
+		update(id: string, data: Record<string, unknown>) {
+			return client.updateRecord(RECORD_TYPE, id, data);
+		},
+
+		delete(id: string) {
+			return client.deleteRecord(RECORD_TYPE, id);
+		},
+
+		search(keyword: string, params: Omit<ListParams, "q"> = {}) {
+			return client.listRecords(RECORD_TYPE, { ...params, q: keyword });
+		},
+
+		searchBySQL(where: string, limit = 100) {
+			return client.suiteQL(
+				`SELECT id, entityId, companyName, firstName, lastName, email, phone, balance, overdueBalance, isInactive FROM customer WHERE ${where}`,
+				{ limit },
+			);
+		},
+	};
+}
+
+export type CustomerAPI = ReturnType<typeof registerCustomerAPI>;
