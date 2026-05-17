@@ -5,6 +5,7 @@ import { registerInvoiceAPI } from "./invoices.ts";
 import { registerProformaInvoiceAPI } from "./proforma-invoices.ts";
 import { registerPurchaseOrderAPI } from "./purchase-orders.ts";
 import { registerSalesOrderAPI } from "./sales-orders.ts";
+import { registerVendorBillAPI } from "./vendor-bills.ts";
 
 export function createAPI(client: NetSuiteClient) {
 	return {
@@ -14,6 +15,7 @@ export function createAPI(client: NetSuiteClient) {
 		invoices: registerInvoiceAPI(client),
 		proformaInvoices: registerProformaInvoiceAPI(client),
 		purchaseOrders: registerPurchaseOrderAPI(client),
+		vendorBills: registerVendorBillAPI(client),
 	};
 }
 

@@ -1,6 +1,6 @@
 # netsuite-mcp
 
-NetSuite MCP server over Streamable HTTP. Exposes 41 tools for managing customers, inventory, sales orders, Pro-Forma Invoices, invoices, and purchase orders via the NetSuite REST API.
+NetSuite MCP server over Streamable HTTP. Exposes 50 tools for managing customers, inventory, sales orders, Pro-Forma Invoices, invoices, purchase orders, and vendor bills via the NetSuite REST API.
 
 ## Prerequisites
 
@@ -73,7 +73,7 @@ curl http://localhost:3000/health
 - **Protocol**: MCP Streamable HTTP (POST/GET/DELETE)
 - **Health check**: `http://localhost:3000/health`
 
-## Available Tools (41)
+## Available Tools (50)
 
 | Module | Tools |
 |---|---|
@@ -82,6 +82,7 @@ curl http://localhost:3000/health
 | **Sales Order / PI** | sales_order_list, sales_order_get, sales_order_search, sales_order_search_sql, sales_order_create, sales_order_update, sales_order_delete, pi_list_recent, pi_search_sql |
 | **Invoice** | invoice_list, invoice_get, invoice_search, invoice_search_sql, invoice_get_overdue, invoice_create, invoice_update, invoice_delete |
 | **Purchase Order** | purchase_order_list, purchase_order_get, purchase_order_search, purchase_order_search_sql, purchase_order_create, purchase_order_update, purchase_order_delete, purchase_order_receive |
+| **Vendor Bill** | vendor_bill_list, vendor_bill_get, vendor_bill_search, vendor_bill_search_sql, vendor_bill_get_overdue, vendor_bill_create, vendor_bill_create_from_po, vendor_bill_update, vendor_bill_delete |
 | **SuiteQL** | suiteql_query |
 
 ## Development

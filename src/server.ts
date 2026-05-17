@@ -1,6 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createAPI, type NetSuiteAPI } from "./api/index.ts";
-import { createNetSuiteClient, type NetSuiteClient } from "./netsuite-client.ts";
+import {
+	createNetSuiteClient,
+	type NetSuiteClient,
+} from "./netsuite-client.ts";
 import { createRestAPI } from "./routes/index.ts";
 import { registerCustomerTools } from "./tools/customers.ts";
 import { registerInventoryTools } from "./tools/inventory.ts";
@@ -8,6 +11,7 @@ import { registerInvoiceTools } from "./tools/invoices.ts";
 import { registerPurchaseOrderTools } from "./tools/purchase-orders.ts";
 import { registerSalesOrderTools } from "./tools/sales-orders.ts";
 import { registerSuiteQLTools } from "./tools/suiteql.ts";
+import { registerVendorBillTools } from "./tools/vendor-bills.ts";
 
 let shared: { client: NetSuiteClient; api: NetSuiteAPI } | null = null;
 
@@ -31,6 +35,7 @@ export function createMcpServer() {
 	registerSalesOrderTools(server, api.salesOrders, api.proformaInvoices);
 	registerInvoiceTools(server, api.invoices);
 	registerPurchaseOrderTools(server, api.purchaseOrders);
+	registerVendorBillTools(server, api.vendorBills);
 	registerSuiteQLTools(server, client);
 
 	return server;
