@@ -54,6 +54,26 @@ Ask the user how to proceed:
 - Adjust quantities to available stock
 - Cancel
 
+### Step 4.5: Assign Lot Numbers (lot-tracked items only)
+
+For each matched item, check whether it is lot-tracked. An item is lot-tracked if `inventory_get` returns `itemType` of `lotNumberedInventoryItem` or `lotNumberedAssemblyItem`, or if `inventory_search_lot_numbers` returns any rows for it.
+
+For every lot-tracked line:
+
+1. Call `inventory_search_lot_numbers` with the item ID (and `locationId` if the PI is scoped to a single warehouse). Results come back oldest-first by lot id (≈ FIFO).
+2. Present the available lots to the user as a table:
+
+   | Lot Number | Expiration | Location | Available |
+   |------------|------------|----------|-----------|
+   | ...        | ...        | ...      | ...       |
+
+   (Expiration may be empty for accounts that don't track it on the lot record.)
+
+3. Ask the user to assign quantities across lots — the assigned total must equal the line quantity. Default suggestion: oldest lot first (FIFO), splitting across lots when one is insufficient.
+4. If no lot has enough on-hand to cover the line, flag the shortage and ask whether to proceed with a partial assignment, change the line quantity, or cancel.
+
+Record each assignment as `{lotId, lotNumber, quantity}` for use in Step 6. These will become entries in `inventoryDetail.inventoryAssignment.items[]`.
+
 ### Step 5: Confirm PI Creation
 
 Present a summary of the PI to be created:
@@ -86,6 +106,31 @@ Once confirmed, use `sales_order_create` with:
 }
 ```
 
+For **lot-tracked** lines, attach `inventoryDetail` with the assignments collected in Step 4.5:
+
+```json
+{
+  "item": {"id": "<item_id>"},
+  "quantity": 10,
+  "rate": <price>,
+  "location": {"id": "<warehouse>"},
+  "inventoryDetail": {
+    "quantity": 10,
+    "inventoryAssignment": {
+      "items": [
+        {"quantity": 6, "issueInventoryNumber": {"id": "<lotId-A>"}},
+        {"quantity": 4, "issueInventoryNumber": {"id": "<lotId-B>"}}
+      ]
+    }
+  }
+}
+```
+
+Notes:
+- A Sales Order *issues* inventory, so use `issueInventoryNumber: {id}` referencing an existing `inventoryNumber` record. Do not use `receiptInventoryNumber` (that's for inbound transactions like Item Receipt).
+- **`inventoryDetail.quantity` is required.** If omitted, NetSuite silently drops the entire `inventoryAssignment.items` array and you'll get a line with an empty lot list. The outer `inventoryDetail.quantity` must equal the line `quantity`, and the sum of `inventoryAssignment.items[].quantity` must equal `inventoryDetail.quantity`. (The API layer auto-fills `inventoryDetail.quantity` from `line.quantity` as a safety net, but always set it explicitly.)
+- Omit `inventoryDetail` entirely for non-lot-tracked items.
+
 After creation, confirm success and provide the PI transaction ID to the user.
 
 ## Important Notes
@@ -95,3 +140,4 @@ After creation, confirm success and provide the PI transaction ID to the user.
 - If the PO currency differs from the customer's default currency, flag this to the user
 - Store the customer's PO number in the `memo` field for cross-reference
 - If rates/prices are on the PO, use them; otherwise, let NetSuite apply default pricing
+- For lot-tracked items, always assign lots in the PI via `inventoryDetail.inventoryAssignment` — don't defer this to fulfillment time

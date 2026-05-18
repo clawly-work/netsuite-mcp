@@ -67,6 +67,25 @@ export function registerInventoryTools(server: McpServer, api: InventoryAPI) {
 	);
 
 	server.tool(
+		"inventory_search_lot_numbers",
+		"Search available lot/serial numbers for a lot-tracked item. Returns inventoryNumber records with id, inventoryNumber (text), expirationDate (may be empty), location, quantityOnHand, and quantityAvailable. Filtered to lots with on-hand > 0 and ordered by lot id ascending (oldest-first ≈ FIFO). Use the returned id as issueInventoryNumber.id when assigning lots on a sales order line's inventoryDetail.",
+		{
+			itemId: z.string().describe("Inventory item internal ID"),
+			locationId: z
+				.string()
+				.optional()
+				.describe("Optional warehouse/location internal ID to filter by"),
+		},
+		async ({ itemId, locationId }) => {
+			try {
+				return ok(await api.searchLotNumbers(itemId, locationId));
+			} catch (e) {
+				return err(e);
+			}
+		},
+	);
+
+	server.tool(
 		"inventory_create",
 		`Create a new inventory item in NetSuite.
 

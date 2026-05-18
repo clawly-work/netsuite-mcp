@@ -99,8 +99,17 @@ Key fields:
   - description (string): Line description override.
   - location (object): {id: "..."} — line-level location.
   - taxCode (object): {id: "..."} — tax code.
+  - inventoryDetail (object): For lot/serial-tracked items only. See "Lot assignment" below.
 
-Example — create a Pro-Forma Invoice:
+Lot assignment (lot/serial-tracked items only):
+Attach inventoryDetail to the line. BOTH the outer inventoryDetail.quantity AND each
+inventoryAssignment.items[].quantity are required — if you omit inventoryDetail.quantity
+NetSuite will silently DROP the lot assignments. The auto-fill in the API layer will copy
+line.quantity into inventoryDetail.quantity when missing, but you should still set it
+explicitly. Use issueInventoryNumber.id (the id returned by inventory_search_lot_numbers),
+not the lot text name.
+
+Example — Pro-Forma Invoice with one lot-tracked line:
 {
   "entity": {"id": "1023"},
   "subsidiary": {"id": "1"},
@@ -110,7 +119,21 @@ Example — create a Pro-Forma Invoice:
   "location": {"id": "1"},
   "item": {"items": [
     {"item": {"id": "225"}, "quantity": 100, "rate": 12.50},
-    {"item": {"id": "226"}, "quantity": 200, "rate": 8.00}
+    {
+      "item": {"id": "1886"},
+      "quantity": 10,
+      "rate": 250,
+      "location": {"id": "2"},
+      "inventoryDetail": {
+        "quantity": 10,
+        "inventoryAssignment": {
+          "items": [
+            {"quantity": 6, "issueInventoryNumber": {"id": "5218"}},
+            {"quantity": 4, "issueInventoryNumber": {"id": "5219"}}
+          ]
+        }
+      }
+    }
   ]}
 }`,
 		{
@@ -135,6 +158,10 @@ Example — create a Pro-Forma Invoice:
 
 Updatable fields: memo, shipDate, exchangeRate, location, department, salesRep, terms, and
 all other header fields. To update line items, provide the full item array.
+
+To assign lots to lot-tracked lines, include inventoryDetail with BOTH the outer quantity
+and the inventoryAssignment.items[] entries — omitting inventoryDetail.quantity causes
+NetSuite to silently drop the assignments. See sales_order_create for the full example.
 
 Example: {"memo": "Updated memo", "shipDate": "2026-06-01"}`,
 		{

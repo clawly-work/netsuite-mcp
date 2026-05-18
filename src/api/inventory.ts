@@ -39,6 +39,16 @@ export function registerInventoryAPI(client: NetSuiteClient) {
 			);
 		},
 
+		searchLotNumbers(itemId: string, locationId?: string) {
+			const locationFilter = locationId
+				? `AND bal.location = '${locationId}'`
+				: "";
+			return client.suiteQL(
+				`SELECT inv.id, inv.inventoryNumber, inv.expirationDate, bal.location, SUM(bal.quantityOnHand) AS quantityOnHand, SUM(bal.quantityAvailable) AS quantityAvailable FROM inventoryNumber inv JOIN inventoryBalance bal ON bal.inventoryNumber = inv.id WHERE inv.item = '${itemId}' ${locationFilter} GROUP BY inv.id, inv.inventoryNumber, inv.expirationDate, bal.location HAVING SUM(bal.quantityOnHand) > 0 ORDER BY inv.id ASC`,
+				{ limit: 500 },
+			);
+		},
+
 		adjustInventory(data: Record<string, unknown>) {
 			return client.createRecord("inventoryAdjustment", data);
 		},

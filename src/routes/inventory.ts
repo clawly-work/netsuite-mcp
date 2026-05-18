@@ -51,6 +51,23 @@ export function inventoryRoutes(api: InventoryAPI): RouteDef[] {
 			handler: async ({ body }) => api.queryStock(body.itemIds),
 		}),
 		defineRoute({
+			method: "post",
+			path: "/api/inventory/lot-numbers",
+			operationId: "inventory_search_lot_numbers",
+			summary: "Search available lot/serial numbers for an item",
+			description:
+				"Search available lot/serial numbers for a lot-tracked item. Returns inventoryNumber records with id, inventoryNumber (text), expirationDate (may be empty), location, quantityOnHand, and quantityAvailable. Filtered to lots with on-hand > 0, ordered by lot id ascending (oldest-first ≈ FIFO). Use the returned id as issueInventoryNumber.id when assigning lots on a sales order line's inventoryDetail.",
+			body: z.object({
+				itemId: z.string().describe("Inventory item internal ID"),
+				locationId: z
+					.string()
+					.optional()
+					.describe("Optional warehouse/location internal ID to filter by"),
+			}),
+			handler: async ({ body }) =>
+				api.searchLotNumbers(body.itemId, body.locationId),
+		}),
+		defineRoute({
 			method: "get",
 			path: "/api/inventory/:id",
 			operationId: "inventory_get",

@@ -118,11 +118,11 @@ export class NetSuiteClient {
 		return `OAuth realm="${this.config.accountId}", ${header}`;
 	}
 
-	async request(
+	async fetchRaw(
 		method: string,
 		path: string,
 		options?: RequestOptions,
-	): Promise<unknown> {
+	): Promise<Response> {
 		const url = `${this.baseUrl}${path}`;
 		const authHeader = await this.buildAuthHeader(method, url);
 
@@ -156,6 +156,15 @@ export class NetSuiteClient {
 			throw new Error(`NetSuite API error ${res.status}: ${text}`);
 		}
 
+		return res;
+	}
+
+	async request(
+		method: string,
+		path: string,
+		options?: RequestOptions,
+	): Promise<unknown> {
+		const res = await this.fetchRaw(method, path, options);
 		const contentType = res.headers.get("content-type") ?? "";
 		if (contentType.includes("json")) {
 			return res.json();
@@ -198,9 +207,22 @@ export class NetSuiteClient {
 		recordType: string,
 		data: Record<string, unknown>,
 	): Promise<Record<string, unknown>> {
-		return (await this.request("POST", `/record/v1/${recordType}`, {
+		// NetSuite returns 204 No Content with the new record's URL in the
+		// Location header — e.g. ".../record/v1/salesOrder/30416". Parse the
+		// trailing id so callers don't need a second round-trip to discover it.
+		const res = await this.fetchRaw("POST", `/record/v1/${recordType}`, {
 			body: data,
-		})) as Record<string, unknown>;
+		});
+		const location = res.headers.get("Location");
+		if (location) {
+			const id = location.split("/").pop() ?? "";
+			return { id };
+		}
+		const contentType = res.headers.get("content-type") ?? "";
+		if (contentType.includes("json")) {
+			return (await res.json()) as Record<string, unknown>;
+		}
+		return {};
 	}
 
 	async updateRecord(
