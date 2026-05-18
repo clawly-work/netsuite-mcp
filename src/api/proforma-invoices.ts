@@ -1,27 +1,18 @@
 import type { ListParams, NetSuiteClient } from "../netsuite-client.ts";
+import {
+	autoAssignLots,
+	fillInventoryDetailQuantity,
+} from "./lot-assignment.ts";
 
 // Pro-Forma Invoice is a salesOrder with a custom form in NetSuite
 const RECORD_TYPE = "salesOrder";
 
-// See note in src/api/sales-orders.ts — NetSuite drops inline lot assignments
-// when inventoryDetail.quantity is not explicitly set.
-function normalizeInventoryDetail(
+async function normalize(
+	client: NetSuiteClient,
 	data: Record<string, unknown>,
-): Record<string, unknown> {
-	const item = data.item as
-		| { items?: Array<Record<string, unknown>> }
-		| undefined;
-	if (!item?.items?.length) return data;
-	for (const line of item.items) {
-		const detail = line.inventoryDetail as Record<string, unknown> | undefined;
-		if (!detail) continue;
-		const assignment = detail.inventoryAssignment as
-			| { items?: Array<Record<string, unknown>> }
-			| undefined;
-		if (!assignment?.items?.length) continue;
-		if (detail.quantity == null) detail.quantity = line.quantity;
-	}
-	return data;
+): Promise<Record<string, unknown>> {
+	await autoAssignLots(client, data);
+	return fillInventoryDetailQuantity(data);
 }
 
 export function registerProformaInvoiceAPI(client: NetSuiteClient) {
@@ -34,15 +25,15 @@ export function registerProformaInvoiceAPI(client: NetSuiteClient) {
 			return client.getRecord(RECORD_TYPE, id);
 		},
 
-		create(data: Record<string, unknown>) {
-			return client.createRecord(RECORD_TYPE, normalizeInventoryDetail(data));
+		async create(data: Record<string, unknown>) {
+			return client.createRecord(RECORD_TYPE, await normalize(client, data));
 		},
 
-		update(id: string, data: Record<string, unknown>) {
+		async update(id: string, data: Record<string, unknown>) {
 			return client.updateRecord(
 				RECORD_TYPE,
 				id,
-				normalizeInventoryDetail(data),
+				await normalize(client, data),
 			);
 		},
 

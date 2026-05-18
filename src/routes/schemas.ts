@@ -4,6 +4,33 @@ export const nsRef = z
 	.object({ id: z.string() })
 	.describe("Reference by internal ID");
 
+const inventoryAssignmentItem = z.object({
+	quantity: z.number().describe("Quantity assigned to this lot"),
+	issueInventoryNumber: nsRef.describe(
+		"Lot record id (use the id returned by inventory_search_lot_numbers). Required on Sales Orders / PIs.",
+	),
+	expirationDate: z.string().optional().describe("Lot expiration (YYYY-MM-DD)"),
+	binNumber: nsRef.optional().describe("Bin reference"),
+	inventoryStatus: nsRef.optional().describe("Inventory status reference"),
+});
+
+const inventoryDetail = z
+	.object({
+		quantity: z
+			.number()
+			.describe(
+				"MUST equal the line quantity. If omitted NetSuite silently drops inventoryAssignment.items.",
+			),
+		inventoryAssignment: z
+			.object({ items: z.array(inventoryAssignmentItem) })
+			.describe(
+				"Lot/serial assignments. Sum of items[].quantity must equal inventoryDetail.quantity.",
+			),
+	})
+	.describe(
+		"Lot/serial assignment subrecord. Required at PI time for lot-tracked items in this account.",
+	);
+
 const transactionLineItem = z.object({
 	item: nsRef.describe("Item reference"),
 	quantity: z.number().describe("Quantity"),
@@ -14,6 +41,11 @@ const transactionLineItem = z.object({
 	taxCode: nsRef.optional().describe("Tax code"),
 	department: nsRef.optional().describe("Department"),
 	units: z.string().optional().describe("Units"),
+	inventoryDetail: inventoryDetail
+		.optional()
+		.describe(
+			"Lot/serial assignment for lot-tracked items. Use inventory_search_lot_numbers first to get lot ids. The API layer will FIFO-auto-assign if omitted for a lot-tracked item.",
+		),
 });
 
 export const lineItems = z

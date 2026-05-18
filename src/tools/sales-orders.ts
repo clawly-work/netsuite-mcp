@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ProformaInvoiceAPI } from "../api/proforma-invoices.ts";
 import type { SalesOrderAPI } from "../api/sales-orders.ts";
+import { salesOrderBody, salesOrderBodyPartial } from "../routes/schemas.ts";
 import { err, ok } from "./helpers.ts";
 
 export function registerSalesOrderTools(
@@ -101,13 +102,14 @@ Key fields:
   - taxCode (object): {id: "..."} — tax code.
   - inventoryDetail (object): For lot/serial-tracked items only. See "Lot assignment" below.
 
-Lot assignment (lot/serial-tracked items only):
-Attach inventoryDetail to the line. BOTH the outer inventoryDetail.quantity AND each
-inventoryAssignment.items[].quantity are required — if you omit inventoryDetail.quantity
-NetSuite will silently DROP the lot assignments. The auto-fill in the API layer will copy
-line.quantity into inventoryDetail.quantity when missing, but you should still set it
-explicitly. Use issueInventoryNumber.id (the id returned by inventory_search_lot_numbers),
-not the lot text name.
+Lot assignment (lot/serial-tracked items):
+The schema exposes inventoryDetail as a typed field on each line. Pass it explicitly when
+you've used inventory_search_lot_numbers to pick specific lots. If you OMIT inventoryDetail
+for a lot-tracked item, the API layer will auto-assign FIFO from available lots at the
+line's location — so a missing inventoryDetail is no longer a silent bug, but you should
+still pass it explicitly for traceability when the user has expressed a lot preference.
+Use issueInventoryNumber.id (the id returned by inventory_search_lot_numbers), not the
+lot text name.
 
 Example — Pro-Forma Invoice with one lot-tracked line:
 {
@@ -137,10 +139,10 @@ Example — Pro-Forma Invoice with one lot-tracked line:
   ]}
 }`,
 		{
-			data: z
-				.record(z.string(), z.unknown())
+			data: salesOrderBody
+				.passthrough()
 				.describe(
-					"Sales order / PI fields — see tool description for available fields and examples",
+					"Sales order / PI fields. See tool description for the lot-tracked example. Custom fields (custbody_*) are passed through.",
 				),
 		},
 		async ({ data }) => {
@@ -159,16 +161,16 @@ Example — Pro-Forma Invoice with one lot-tracked line:
 Updatable fields: memo, shipDate, exchangeRate, location, department, salesRep, terms, and
 all other header fields. To update line items, provide the full item array.
 
-To assign lots to lot-tracked lines, include inventoryDetail with BOTH the outer quantity
-and the inventoryAssignment.items[] entries — omitting inventoryDetail.quantity causes
-NetSuite to silently drop the assignments. See sales_order_create for the full example.
+When the item array is provided, lot-tracked lines without inventoryDetail are
+auto-assigned FIFO. Pass inventoryDetail explicitly to pin specific lots. See
+sales_order_create for the full lot-assignment example.
 
 Example: {"memo": "Updated memo", "shipDate": "2026-06-01"}`,
 		{
 			id: z.string().describe("Sales order internal ID"),
-			data: z
-				.record(z.string(), z.unknown())
-				.describe("Fields to update — see tool description"),
+			data: salesOrderBodyPartial
+				.passthrough()
+				.describe("Fields to update — see sales_order_create for shape"),
 		},
 		async ({ id, data }) => {
 			try {
